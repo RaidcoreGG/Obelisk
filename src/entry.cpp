@@ -19,6 +19,8 @@
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "dwmapi.lib")
 
+#include "ResConst.h"
+
 static ID3D11Device* g_pd3dDevice = nullptr;
 static ID3D11DeviceContext* g_pd3dDeviceContext = nullptr;
 static IDXGISwapChain* g_pSwapChain = nullptr;
@@ -42,9 +44,13 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 
 	// Create application window
 	//ImGui_ImplWin32_EnableDpiAwareness();
-	WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_HREDRAW | CS_VREDRAW, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, L"Raidcore_Dx_Window_Class", NULL };
+	WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_HREDRAW | CS_VREDRAW, WndProc, 0L, 0L, GetModuleHandle(NULL), LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(APP_ICON)), NULL, NULL, NULL, L"Raidcore_Dx_Window_Class", NULL };
 	::RegisterClassEx(&wc);
-	HWND hwnd = ::CreateWindowEx(NULL, wc.lpszClassName, L"Obelisk", WS_POPUP | WS_VISIBLE | WS_CLIPSIBLINGS | WS_MINIMIZEBOX, (desktop.right - 520) / 2, (desktop.bottom - 640) / 2, 520, 640, NULL, NULL, wc.hInstance, NULL);
+	DWORD dwStyle = WS_VISIBLE | WS_CLIPSIBLINGS | WS_MINIMIZEBOX;
+#ifdef NDEBUG
+	dwStyle |= WS_POPUP;
+#endif
+	HWND hwnd = ::CreateWindowEx(NULL, wc.lpszClassName, L"Obelisk", dwStyle, (desktop.right - 520) / 2, (desktop.bottom - 640) / 2, 520, 640, NULL, NULL, wc.hInstance, NULL);
 	SetWindowLong(hwnd, GWL_EXSTYLE, GetWindowLong(hwnd, GWL_EXSTYLE) | WS_EX_LEFT | WS_EX_LTRREADING | WS_EX_RIGHTSCROLLBAR | WS_EX_LAYERED);
 	
 	if (!CreateDeviceD3D(hwnd))
@@ -61,9 +67,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
-
-	ImGui::StyleColorsDark();
-	ImGui::GetStyle().WindowRounding = 15.f;
 
 	ImGui_ImplWin32_EnableAlphaCompositing(hwnd);
 
@@ -89,7 +92,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 		ImGui::NewFrame();
 
 		// Example splash content
-		ImGui::Begin("Splash", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
+		ImGui::Begin("Obelisk", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
 
 		ImRect title_bar_rect = ImGui::GetCurrentWindow()->TitleBarRect();
 		if (ImGui::IsMouseHoveringRect(title_bar_rect.Min, title_bar_rect.Max, false))

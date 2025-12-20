@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="res\ResConst.h" />
     <ClInclude Include="thirdparty\imgui\backends\imgui_impl_dx11.h" />
     <ClInclude Include="thirdparty\imgui\backends\imgui_impl_win32.h" />
     <ClInclude Include="thirdparty\imgui\imconfig.h" />
@@ -37,6 +38,12 @@
     <ClCompile Include="thirdparty\imgui\imgui_draw.cpp" />
     <ClCompile Include="thirdparty\imgui\imgui_tables.cpp" />
     <ClCompile Include="thirdparty\imgui\imgui_widgets.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="res\Obelisk.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="res\icons\icon_simple_32x32.ico" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
