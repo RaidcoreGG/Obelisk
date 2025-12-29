@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -20,6 +20,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="res\ResConst.h" />
+    <ClInclude Include="src\App.h" />
+    <ClInclude Include="src\Client\CliTextureLoader.h" />
+    <ClInclude Include="src\Client\CliWindow.h" />
     <ClInclude Include="thirdparty\imgui\backends\imgui_impl_dx11.h" />
     <ClInclude Include="thirdparty\imgui\backends\imgui_impl_win32.h" />
     <ClInclude Include="thirdparty\imgui\imconfig.h" />
@@ -30,7 +33,7 @@
     <ClInclude Include="thirdparty\imgui\imstb_truetype.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\entry.cpp" />
+    <ClCompile Include="src\App.cpp" />
     <ClCompile Include="thirdparty\imgui\backends\imgui_impl_dx11.cpp" />
     <ClCompile Include="thirdparty\imgui\backends\imgui_impl_win32.cpp" />
     <ClCompile Include="thirdparty\imgui\imgui.cpp" />
@@ -43,7 +46,11 @@
     <ResourceCompile Include="res\Obelisk.rc" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="res\icons\icon_simple_32x32.ico" />
+    <Image Include="res\icons\gw2_256x256.ico" />
+    <Image Include="res\icons\gw_256x256.ico" />
+    <Image Include="res\icons\obelisk_simple_256x256.ico" />
+    <Image Include="res\themes\guildlounge\base.png" />
+    <Image Include="res\themes\guildlounge\keyart.png" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -147,6 +154,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -167,6 +175,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

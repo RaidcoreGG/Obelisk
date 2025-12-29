@@ -42,6 +42,15 @@
     <ClInclude Include="res\ResConst.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\Client\CliTextureLoader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Client\CliWindow.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\App.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="thirdparty\imgui\imgui.cpp">
@@ -65,7 +74,7 @@
     <ClCompile Include="thirdparty\imgui\backends\imgui_impl_win32.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\entry.cpp">
+    <ClCompile Include="src\App.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -75,7 +84,19 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <Image Include="res\icons\icon_simple_32x32.ico">
+    <Image Include="res\themes\guildlounge\base.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\themes\guildlounge\keyart.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\icons\obelisk_simple_256x256.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\icons\gw_256x256.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\icons\gw2_256x256.ico">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>
