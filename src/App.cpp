@@ -8,6 +8,12 @@
 
 #include "App.h"
 
+#include <vector>
+
+#include <gdiplus.h>
+#pragma comment(lib, "gdiplus.lib")
+using namespace Gdiplus;
+
 #include "imgui/backends/imgui_impl_dx11.h"
 #include "imgui/backends/imgui_impl_win32.h"
 #include "imgui/imgui.h"
@@ -17,8 +23,61 @@
 
 static bool g_canDragWindow = false;
 
+HBITMAP CopyOffscreenToBitmap(int width, int height)
+{
+	// Create staging texture
+	D3D11_TEXTURE2D_DESC texDesc;
+	AppContext::GrOffscreenTexture->GetDesc(&texDesc);
+
+	D3D11_TEXTURE2D_DESC stagingDesc = texDesc;
+	stagingDesc.Usage = D3D11_USAGE_STAGING;
+	stagingDesc.BindFlags = 0;
+	stagingDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	stagingDesc.MiscFlags = 0;
+
+	ID3D11Texture2D* stagingTex = nullptr;
+	AppContext::GrDevice->CreateTexture2D(&stagingDesc, nullptr, &stagingTex);
+
+	AppContext::GrDeviceContext->CopyResource(stagingTex, AppContext::GrOffscreenTexture);
+
+	// Map CPU
+	D3D11_MAPPED_SUBRESOURCE mapped;
+	AppContext::GrDeviceContext->Map(stagingTex, 0, D3D11_MAP_READ, 0, &mapped);
+
+	// Copy row by row into a tightly packed buffer
+	std::vector<BYTE> bmpData(width * height * 4);
+	BYTE* dst = bmpData.data();
+	BYTE* src = reinterpret_cast<BYTE*>(mapped.pData);
+	for (UINT y = 0; y < height; y++)
+	{
+		memcpy(dst + y * width * 4, src + y * mapped.RowPitch, width * 4);
+	}
+
+	// Create HBITMAP using tightly packed bmpData
+	BITMAPINFO bmi{};
+	bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	bmi.bmiHeader.biWidth = width;
+	bmi.bmiHeader.biHeight = -height; // top-down
+	bmi.bmiHeader.biPlanes = 1;
+	bmi.bmiHeader.biBitCount = 32;
+	bmi.bmiHeader.biCompression = BI_RGB;
+
+	HDC hdc = GetDC(AppContext::GrWindow);
+	HBITMAP hBitmap = CreateDIBitmap(hdc, &bmi.bmiHeader, CBM_INIT, bmpData.data(), &bmi, DIB_RGB_COLORS);
+	ReleaseDC(AppContext::GrWindow, hdc);
+
+	AppContext::GrDeviceContext->Unmap(stagingTex, 0);
+	stagingTex->Release();
+
+	return hBitmap;
+}
+
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
+	ULONG_PTR gdiToken{};
+	GdiplusStartupInput gdiplusStartupInput{};
+	GdiplusStartup(&gdiToken, &gdiplusStartupInput, nullptr);
+
 	WNDCLASSEX wc{};
 	wc.cbSize        = sizeof(WNDCLASSEX);
 	wc.style         = CS_HREDRAW | CS_VREDRAW;
@@ -29,18 +88,22 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	::RegisterClassEx(&wc);
 
 	DWORD dwStyle
-		= WS_VISIBLE
+		= WS_POPUP
+		| WS_VISIBLE
 		| WS_CLIPSIBLINGS
 		| WS_MINIMIZEBOX;
-#ifndef _DEBUG
-	dwStyle |= WS_POPUP;
-#endif
+
+	DWORD dwExStyle
+		= WS_EX_LEFT
+		| WS_EX_LTRREADING
+		| WS_EX_RIGHTSCROLLBAR
+		| WS_EX_LAYERED;
 
 	RECT desktop{};
-	GetWindowRect(GetDesktopWindow(), &desktop);
+	::GetWindowRect(::GetDesktopWindow(), &desktop);
 
-	HWND hwnd = ::CreateWindowEx(
-		NULL,
+	AppContext::GrWindow = ::CreateWindowEx(
+		dwExStyle,
 		wc.lpszClassName,
 		L"Obelisk",
 		dwStyle,
@@ -53,29 +116,19 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 		wc.hInstance,
 		NULL
 	);
-	::SetWindowLong(
-		hwnd,
-		GWL_EXSTYLE,
-		::GetWindowLong(hwnd, GWL_EXSTYLE)
-			| WS_EX_LEFT
-			| WS_EX_LTRREADING
-			| WS_EX_RIGHTSCROLLBAR
-			| WS_EX_LAYERED
-	);
-	
-	if (!AppContext::GrCreateDevice(hwnd))
+
+	if (!AppContext::GrCreateDevice(AppContext::GrWindow))
 	{
 		AppContext::GrDestroyDevice();
 		::UnregisterClass(wc.lpszClassName, wc.hInstance);
 		return 1;
 	}
 
-	::ShowWindow(hwnd, SW_SHOW);
-	::UpdateWindow(hwnd);
+	::ShowWindow(AppContext::GrWindow, SW_SHOW);
+	::UpdateWindow(AppContext::GrWindow);
 
 	ImGui::CreateContext();
-	ImGui_ImplWin32_EnableAlphaCompositing(hwnd);
-	ImGui_ImplWin32_Init(hwnd);
+	ImGui_ImplWin32_Init(AppContext::GrWindow);
 	ImGui_ImplDX11_Init(AppContext::GrDevice, AppContext::GrDeviceContext);
 
 	// Main loop
@@ -117,26 +170,44 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 		ImGui::Button("button");
 		if (ImGui::Button("Quit"))
 		{
-			::PostMessage(hwnd, WM_QUIT, 0, 0);
+			::PostMessage(AppContext::GrWindow, WM_QUIT, 0, 0);
 		}
 		ImGui::End();
 
 		ImGui::Render();
 
 		static const float s_ClearColor[4] = { 0.f, 0.f, 0.f, 0.f };
-		AppContext::GrDeviceContext->OMSetRenderTargets(1, &AppContext::GrRenderTarget, NULL);
-		AppContext::GrDeviceContext->ClearRenderTargetView(AppContext::GrRenderTarget, s_ClearColor);
+		AppContext::GrDeviceContext->OMSetRenderTargets(1, &AppContext::GrOffscreenRenderTarget, NULL);
+		AppContext::GrDeviceContext->ClearRenderTargetView(AppContext::GrOffscreenRenderTarget, s_ClearColor);
 		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
-		AppContext::GrSwapChain->Present(1, 0);
+		// Copy to HBITMAP
+		HBITMAP bmp = CopyOffscreenToBitmap(520, 640);
+
+		// Update layered window
+		POINT ptZero = { 0,0 };
+		SIZE size = { 520, 640 };
+		BLENDFUNCTION blend{};
+		blend.BlendOp = AC_SRC_OVER;
+		blend.SourceConstantAlpha = 255;
+		blend.AlphaFormat = AC_SRC_ALPHA;
+		HDC hdcScreen = GetDC(nullptr);
+		HDC hdcMem = CreateCompatibleDC(hdcScreen);
+		HBITMAP oldBmp = (HBITMAP)SelectObject(hdcMem, bmp);
+		UpdateLayeredWindow(AppContext::GrWindow, hdcScreen, nullptr, &size, hdcMem, &ptZero, 0, &blend, ULW_ALPHA);
+		SelectObject(hdcMem, oldBmp);
+		DeleteDC(hdcMem);
+		ReleaseDC(nullptr, hdcScreen);
+		DeleteObject(bmp);
 	}
 
 	ImGui_ImplDX11_Shutdown();
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
+	GdiplusShutdown(gdiToken);
 
 	AppContext::GrDestroyDevice();
-	::DestroyWindow(hwnd);
+	::DestroyWindow(AppContext::GrWindow);
 	::UnregisterClass(wc.lpszClassName, wc.hInstance);
 
 	return 0;
@@ -156,7 +227,6 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			if (AppContext::GrDevice != nullptr && wParam != SIZE_MINIMIZED)
 			{
 				AppContext::GrDestroyRenderTarget();
-				AppContext::GrSwapChain->ResizeBuffers(0, (UINT)LOWORD(lParam), (UINT)HIWORD(lParam), DXGI_FORMAT_UNKNOWN, 0);
 				AppContext::GrCreateRenderTarget();
 			}
 			return 0;
@@ -184,15 +254,6 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 bool AppContext::GrCreateDevice(HWND aWindowHandle)
 {
-	DXGI_SWAP_CHAIN_DESC desc{};
-	desc.BufferCount = 2;
-	desc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	desc.OutputWindow = aWindowHandle;
-	desc.SampleDesc.Count = 1;
-	desc.Windowed = TRUE;
-	desc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
-
 	UINT createDeviceFlags = 0;
 #ifdef _DEBUG
 	createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
@@ -201,9 +262,9 @@ bool AppContext::GrCreateDevice(HWND aWindowHandle)
 	D3D_FEATURE_LEVEL featureLevel{};
 	const D3D_FEATURE_LEVEL featureLevelArray[1] = { D3D_FEATURE_LEVEL_11_0 };
 
-	if (!SUCCEEDED(D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL,
+	if (!SUCCEEDED(D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL,
 		createDeviceFlags, featureLevelArray, 1, D3D11_SDK_VERSION,
-		&desc, &AppContext::GrSwapChain, &AppContext::GrDevice, &featureLevel,
+		&AppContext::GrDevice, &featureLevel,
 		&AppContext::GrDeviceContext)))
 	{
 		return false;
@@ -216,12 +277,6 @@ bool AppContext::GrCreateDevice(HWND aWindowHandle)
 void AppContext::GrDestroyDevice()
 {
 	AppContext::GrDestroyRenderTarget();
-
-	if (AppContext::GrSwapChain)
-	{
-		AppContext::GrSwapChain->Release();
-		AppContext::GrSwapChain = nullptr;
-	}
 
 	if (AppContext::GrDeviceContext)
 	{
@@ -238,25 +293,41 @@ void AppContext::GrDestroyDevice()
 
 bool AppContext::GrCreateRenderTarget()
 {
-	ID3D11Texture2D* pBackBuffer{};
-	AppContext::GrSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer));
+	D3D11_TEXTURE2D_DESC texDesc{};
+	texDesc.Width = 520;
+	texDesc.Height = 640;
+	texDesc.MipLevels = 1;
+	texDesc.ArraySize = 1;
+	texDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+	texDesc.SampleDesc.Count = 1;
+	texDesc.Usage = D3D11_USAGE_DEFAULT;
+	texDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+	AppContext::GrDevice->CreateTexture2D(&texDesc, nullptr, &AppContext::GrOffscreenTexture);
 
-	if (!pBackBuffer)
+	if (!AppContext::GrOffscreenTexture)
 	{
 		return false;
 	}
 
-	AppContext::GrDevice->CreateRenderTargetView(pBackBuffer, NULL, &AppContext::GrRenderTarget);
-	pBackBuffer->Release();
+	D3D11_RENDER_TARGET_VIEW_DESC rtvDesc{};
+	rtvDesc.Format = texDesc.Format;
+	rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+	AppContext::GrDevice->CreateRenderTargetView(AppContext::GrOffscreenTexture, NULL, &AppContext::GrOffscreenRenderTarget);
 
 	return true;
 }
 
 void AppContext::GrDestroyRenderTarget()
 {
-	if (AppContext::GrRenderTarget)
+	if (AppContext::GrOffscreenRenderTarget)
 	{
-		AppContext::GrRenderTarget->Release();
-		AppContext::GrRenderTarget = nullptr;
+		AppContext::GrOffscreenRenderTarget->Release();
+		AppContext::GrOffscreenRenderTarget = nullptr;
+	}
+
+	if (AppContext::GrOffscreenTexture)
+	{
+		AppContext::GrOffscreenTexture->Release();
+		AppContext::GrOffscreenTexture = nullptr;
 	}
 }

@@ -47,10 +47,11 @@ LRESULT WINAPI WndProc(
 class AppContext
 {
 	public:
+	inline static HWND                    GrWindow{};
 	inline static ID3D11Device*           GrDevice{};
 	inline static ID3D11DeviceContext*    GrDeviceContext{};
-	inline static IDXGISwapChain*         GrSwapChain{};
-	inline static ID3D11RenderTargetView* GrRenderTarget{};
+	inline static ID3D11Texture2D*        GrOffscreenTexture{};
+	inline static ID3D11RenderTargetView* GrOffscreenRenderTarget{};
 
 	///----------------------------------------------------------------------------------------------------
 	/// GrCreateDevice:
