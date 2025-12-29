@@ -74,9 +74,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	::UpdateWindow(hwnd);
 
 	ImGui::CreateContext();
-
 	ImGui_ImplWin32_EnableAlphaCompositing(hwnd);
-
 	ImGui_ImplWin32_Init(hwnd);
 	ImGui_ImplDX11_Init(AppContext::GrDevice, AppContext::GrDeviceContext);
 
@@ -94,6 +92,9 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 		ImGui_ImplDX11_NewFrame();
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();
+
+		ImGui::ShowMetricsWindow();
+		ImGui::ShowStyleEditor();
 
 		// Example splash content
 		ImGui::Begin("Obelisk", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
