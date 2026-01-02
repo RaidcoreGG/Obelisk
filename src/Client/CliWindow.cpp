@@ -24,13 +24,10 @@ CClientWindow::~CClientWindow() {}
 
 void CClientWindow::Render()
 {
+	/* Reset state. */
 	this->DraggableAreaHovered = false;
 
-	// Example splash content
-	if (!ImGui::Begin("Obelisk", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings))
-	{
-		return;
-	}
+	ImGui::Begin("Obelisk", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
 
 	ImRect title_bar_rect = ImGui::GetCurrentWindow()->TitleBarRect();
 	if (ImGui::IsMouseHoveringRect(title_bar_rect.Min, title_bar_rect.Max, false))
@@ -48,6 +45,7 @@ void CClientWindow::Render()
 	{
 		::PostMessage(AppContext::GrWindow, WM_QUIT, 0, 0);
 	}
+
 	ImGui::End();
 }
 
