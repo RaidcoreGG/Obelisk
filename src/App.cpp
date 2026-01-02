@@ -124,6 +124,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 		}
 		ImGui::End();
 
+
 #ifdef _DEBUG
 		ImDrawList* dlBg = ImGui::GetBackgroundDrawList();
 		dlBg->AddRect(ImVec2(0, 0), ImVec2(ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y), ImColor(1.f, 0.f, 0.f));
@@ -154,6 +155,14 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 		::DeleteDC(hdcMem);
 		::ReleaseDC(nullptr, hdcScreen);
 		::DeleteObject(bmp);
+
+		constexpr float k_MinDeltaTime = 1.0f / 60.0f;
+		ImGuiIO& io = ImGui::GetIO();
+
+		if (io.DeltaTime < k_MinDeltaTime)
+		{
+			::Sleep(static_cast<uint32_t>((k_MinDeltaTime - io.DeltaTime) * 1000.0f));
+		}
 	}
 
 	ImGui_ImplDX11_Shutdown();
