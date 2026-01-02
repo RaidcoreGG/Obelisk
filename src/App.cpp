@@ -16,7 +16,6 @@
 #include "imgui/backends/imgui_impl_dx11.h"
 #include "imgui/backends/imgui_impl_win32.h"
 #include "imgui/imgui.h"
-#include "imgui/imgui_internal.h"
 
 #include "ResConst.h"
 
@@ -99,31 +98,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 		ImGui::ShowMetricsWindow();
 		ImGui::ShowStyleEditor();
 
-		// Example splash content
-		ImGui::Begin("Obelisk", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
-
-		ImRect title_bar_rect = ImGui::GetCurrentWindow()->TitleBarRect();
-		if (ImGui::IsMouseHoveringRect(title_bar_rect.Min, title_bar_rect.Max, false))
-		{
-			g_canDragWindow = true;
-		}
-		else
-		{
-			g_canDragWindow = false;
-		}
-
-		ImGui::Text("candrag: %s", g_canDragWindow ? "true" : "false");
-		ImGui::Text("Rect: %.0f, %.0f, %.0f, %.0f", title_bar_rect.Min.x, title_bar_rect.Min.y, title_bar_rect.Max.x, title_bar_rect.Max.y);
-
-		ImGui::Text("Loading...");
-		ImGui::Text("Semi-transparent splash art here");
-		ImGui::Button("button");
-		if (ImGui::Button("Quit"))
-		{
-			::PostMessage(AppContext::GrWindow, WM_QUIT, 0, 0);
-		}
-		ImGui::End();
-
+		AppContext::CliWindow.Render();
 
 #ifdef _DEBUG
 		ImDrawList* dlBg = ImGui::GetBackgroundDrawList();
@@ -202,7 +177,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		}
 		case WM_NCHITTEST:
 		{
-			if (g_canDragWindow)
+			if (AppContext::CliWindow.IsDraggable())
 			{
 				return HTCAPTION;
 			}

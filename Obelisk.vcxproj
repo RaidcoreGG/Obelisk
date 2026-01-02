@@ -34,6 +34,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\App.cpp" />
+    <ClCompile Include="src\Client\CliWindow.cpp" />
     <ClCompile Include="thirdparty\imgui\backends\imgui_impl_dx11.cpp" />
     <ClCompile Include="thirdparty\imgui\backends\imgui_impl_win32.cpp" />
     <ClCompile Include="thirdparty\imgui\imgui.cpp" />

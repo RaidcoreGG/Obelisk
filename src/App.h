@@ -16,6 +16,8 @@
 
 #include "imgui/backends/imgui_impl_win32.h"
 
+#include "Client/CliWindow.h"
+
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 ///----------------------------------------------------------------------------------------------------
@@ -56,6 +58,8 @@ class AppContext
 		uint32_t Width  = 520;
 		uint32_t Height = 640;
 	} GrDimensions;
+
+	inline static CClientWindow           CliWindow{};
 
 	///----------------------------------------------------------------------------------------------------
 	/// GrCopyRTVToBitmap:
