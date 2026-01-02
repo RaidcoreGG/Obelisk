@@ -8,12 +8,11 @@
 
 #pragma once
 
+#include <cstdint>
 #include <windows.h>
 
 #include <d3d11.h>
-#include <dxgi.h>
 #pragma comment(lib, "d3d11.lib")
-#pragma comment(lib, "dxgi.lib")
 
 #include "imgui/backends/imgui_impl_win32.h"
 
@@ -52,6 +51,23 @@ class AppContext
 	inline static ID3D11DeviceContext*    GrDeviceContext{};
 	inline static ID3D11Texture2D*        GrOffscreenTexture{};
 	inline static ID3D11RenderTargetView* GrOffscreenRenderTarget{};
+	inline static struct Dimensions_t
+	{
+		uint32_t Width  = 520;
+		uint32_t Height = 640;
+	} GrDimensions;
+
+	///----------------------------------------------------------------------------------------------------
+	/// GrCopyRTVToBitmap:
+	/// 	Helper to copy the render target output to the GDI+ bitmap for rendering.
+	///----------------------------------------------------------------------------------------------------
+	static HBITMAP GrCopyRTVToBitmap();
+
+	///----------------------------------------------------------------------------------------------------
+	/// GrResizeClient:
+	/// 	Helper to resize the client area and device resources.
+	///----------------------------------------------------------------------------------------------------
+	static void GrResizeClient(uint32_t aWidth, uint32_t aHeight);
 
 	///----------------------------------------------------------------------------------------------------
 	/// GrCreateDevice:

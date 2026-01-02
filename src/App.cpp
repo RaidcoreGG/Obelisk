@@ -12,7 +12,6 @@
 
 #include <gdiplus.h>
 #pragma comment(lib, "gdiplus.lib")
-using namespace Gdiplus;
 
 #include "imgui/backends/imgui_impl_dx11.h"
 #include "imgui/backends/imgui_impl_win32.h"
@@ -23,68 +22,19 @@ using namespace Gdiplus;
 
 static bool g_canDragWindow = false;
 
-HBITMAP CopyOffscreenToBitmap(int width, int height)
-{
-	// Create staging texture
-	D3D11_TEXTURE2D_DESC texDesc;
-	AppContext::GrOffscreenTexture->GetDesc(&texDesc);
-
-	D3D11_TEXTURE2D_DESC stagingDesc = texDesc;
-	stagingDesc.Usage = D3D11_USAGE_STAGING;
-	stagingDesc.BindFlags = 0;
-	stagingDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-	stagingDesc.MiscFlags = 0;
-
-	ID3D11Texture2D* stagingTex = nullptr;
-	AppContext::GrDevice->CreateTexture2D(&stagingDesc, nullptr, &stagingTex);
-
-	AppContext::GrDeviceContext->CopyResource(stagingTex, AppContext::GrOffscreenTexture);
-
-	// Map CPU
-	D3D11_MAPPED_SUBRESOURCE mapped;
-	AppContext::GrDeviceContext->Map(stagingTex, 0, D3D11_MAP_READ, 0, &mapped);
-
-	// Copy row by row into a tightly packed buffer
-	std::vector<BYTE> bmpData(width * height * 4);
-	BYTE* dst = bmpData.data();
-	BYTE* src = reinterpret_cast<BYTE*>(mapped.pData);
-	for (UINT y = 0; y < height; y++)
-	{
-		memcpy(dst + y * width * 4, src + y * mapped.RowPitch, width * 4);
-	}
-
-	// Create HBITMAP using tightly packed bmpData
-	BITMAPINFO bmi{};
-	bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-	bmi.bmiHeader.biWidth = width;
-	bmi.bmiHeader.biHeight = -height; // top-down
-	bmi.bmiHeader.biPlanes = 1;
-	bmi.bmiHeader.biBitCount = 32;
-	bmi.bmiHeader.biCompression = BI_RGB;
-
-	HDC hdc = GetDC(AppContext::GrWindow);
-	HBITMAP hBitmap = CreateDIBitmap(hdc, &bmi.bmiHeader, CBM_INIT, bmpData.data(), &bmi, DIB_RGB_COLORS);
-	ReleaseDC(AppContext::GrWindow, hdc);
-
-	AppContext::GrDeviceContext->Unmap(stagingTex, 0);
-	stagingTex->Release();
-
-	return hBitmap;
-}
-
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
 	ULONG_PTR gdiToken{};
-	GdiplusStartupInput gdiplusStartupInput{};
-	GdiplusStartup(&gdiToken, &gdiplusStartupInput, nullptr);
+	Gdiplus::GdiplusStartupInput gdiplusStartupInput{};
+	Gdiplus::GdiplusStartup(&gdiToken, &gdiplusStartupInput, nullptr);
 
 	WNDCLASSEX wc{};
 	wc.cbSize        = sizeof(WNDCLASSEX);
 	wc.style         = CS_HREDRAW | CS_VREDRAW;
 	wc.lpfnWndProc   = WndProc;
 	wc.hInstance     = ::GetModuleHandle(NULL);
-	wc.hIcon         = ::LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(APP_ICON));
-	wc.lpszClassName = L"Raidcore_Dx_Window_Class";
+	wc.hIcon         = ::LoadIcon(::GetModuleHandle(NULL), MAKEINTRESOURCE(APP_ICON));
+	wc.lpszClassName = L"Raidcore_Gr_Splash_Class";
 	::RegisterClassEx(&wc);
 
 	DWORD dwStyle
@@ -107,10 +57,10 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 		wc.lpszClassName,
 		L"Obelisk",
 		dwStyle,
-		(desktop.right - 520) / 2,
-		(desktop.bottom - 640) / 2,
-		520,
-		640,
+		(desktop.right - AppContext::GrDimensions.Width) / 2,
+		(desktop.bottom - AppContext::GrDimensions.Height) / 2,
+		AppContext::GrDimensions.Width,
+		AppContext::GrDimensions.Height,
 		NULL,
 		NULL,
 		wc.hInstance,
@@ -166,13 +116,18 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 		ImGui::Text("Rect: %.0f, %.0f, %.0f, %.0f", title_bar_rect.Min.x, title_bar_rect.Min.y, title_bar_rect.Max.x, title_bar_rect.Max.y);
 
 		ImGui::Text("Loading...");
-		ImGui::Text("Semi‑-transparent splash art here");
+		ImGui::Text("Semi-transparent splash art here");
 		ImGui::Button("button");
 		if (ImGui::Button("Quit"))
 		{
 			::PostMessage(AppContext::GrWindow, WM_QUIT, 0, 0);
 		}
 		ImGui::End();
+
+#ifdef _DEBUG
+		ImDrawList* dlBg = ImGui::GetBackgroundDrawList();
+		dlBg->AddRect(ImVec2(0, 0), ImVec2(ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y), ImColor(1.f, 0.f, 0.f));
+#endif
 
 		ImGui::Render();
 
@@ -182,29 +137,29 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 		ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
 		// Copy to HBITMAP
-		HBITMAP bmp = CopyOffscreenToBitmap(520, 640);
+		HBITMAP bmp = AppContext::GrCopyRTVToBitmap();
 
 		// Update layered window
 		POINT ptZero = { 0,0 };
-		SIZE size = { 520, 640 };
+		SIZE size = { static_cast<LONG>(AppContext::GrDimensions.Width), static_cast<LONG>(AppContext::GrDimensions.Height) };
 		BLENDFUNCTION blend{};
 		blend.BlendOp = AC_SRC_OVER;
 		blend.SourceConstantAlpha = 255;
 		blend.AlphaFormat = AC_SRC_ALPHA;
-		HDC hdcScreen = GetDC(nullptr);
-		HDC hdcMem = CreateCompatibleDC(hdcScreen);
-		HBITMAP oldBmp = (HBITMAP)SelectObject(hdcMem, bmp);
-		UpdateLayeredWindow(AppContext::GrWindow, hdcScreen, nullptr, &size, hdcMem, &ptZero, 0, &blend, ULW_ALPHA);
-		SelectObject(hdcMem, oldBmp);
-		DeleteDC(hdcMem);
-		ReleaseDC(nullptr, hdcScreen);
-		DeleteObject(bmp);
+		HDC hdcScreen = ::GetDC(nullptr);
+		HDC hdcMem = ::CreateCompatibleDC(hdcScreen);
+		HBITMAP oldBmp = static_cast<HBITMAP>(::SelectObject(hdcMem, bmp));
+		::UpdateLayeredWindow(AppContext::GrWindow, hdcScreen, nullptr, &size, hdcMem, &ptZero, 0, &blend, ULW_ALPHA);
+		::SelectObject(hdcMem, oldBmp);
+		::DeleteDC(hdcMem);
+		::ReleaseDC(nullptr, hdcScreen);
+		::DeleteObject(bmp);
 	}
 
 	ImGui_ImplDX11_Shutdown();
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
-	GdiplusShutdown(gdiToken);
+	Gdiplus::GdiplusShutdown(gdiToken);
 
 	AppContext::GrDestroyDevice();
 	::DestroyWindow(AppContext::GrWindow);
@@ -233,7 +188,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		}
 		case WM_DESTROY:
 		{
-			PostQuitMessage(0);
+			::PostQuitMessage(0);
 			return 0;
 		}
 		case WM_NCHITTEST:
@@ -250,6 +205,74 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	}
 
 	return DefWindowProc(hWnd, uMsg, wParam, lParam);
+}
+
+HBITMAP AppContext::GrCopyRTVToBitmap()
+{
+	// Create staging texture
+	D3D11_TEXTURE2D_DESC texDesc{};
+	AppContext::GrOffscreenTexture->GetDesc(&texDesc);
+
+	D3D11_TEXTURE2D_DESC stagingDesc{ texDesc };
+	stagingDesc.Usage = D3D11_USAGE_STAGING;
+	stagingDesc.BindFlags = 0;
+	stagingDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	stagingDesc.MiscFlags = 0;
+
+	ID3D11Texture2D* stagingTex = nullptr;
+	AppContext::GrDevice->CreateTexture2D(&stagingDesc, nullptr, &stagingTex);
+
+	AppContext::GrDeviceContext->CopyResource(stagingTex, AppContext::GrOffscreenTexture);
+
+	// Map CPU
+	D3D11_MAPPED_SUBRESOURCE mapped{};
+	AppContext::GrDeviceContext->Map(stagingTex, 0, D3D11_MAP_READ, 0, &mapped);
+
+	// Copy row by row into a tightly packed buffer
+	std::vector<BYTE> bmpData(texDesc.Width * texDesc.Height * 4);
+	BYTE* dst = bmpData.data();
+	BYTE* src = reinterpret_cast<BYTE*>(mapped.pData);
+	for (UINT y = 0; y < texDesc.Height; y++)
+	{
+		memcpy(dst + y * texDesc.Width * 4, src + y * mapped.RowPitch, texDesc.Width * 4);
+	}
+
+	// Create HBITMAP using tightly packed bmpData
+	BITMAPINFO bmi{};
+	bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	bmi.bmiHeader.biWidth = static_cast<int32_t>(texDesc.Width);
+	bmi.bmiHeader.biHeight = -static_cast<int32_t>(texDesc.Height); // top-down
+	bmi.bmiHeader.biPlanes = 1;
+	bmi.bmiHeader.biBitCount = 32;
+	bmi.bmiHeader.biCompression = BI_RGB;
+
+	HDC hdc = ::GetDC(AppContext::GrWindow);
+	HBITMAP hBitmap = ::CreateDIBitmap(hdc, &bmi.bmiHeader, CBM_INIT, bmpData.data(), &bmi, DIB_RGB_COLORS);
+	::ReleaseDC(AppContext::GrWindow, hdc);
+
+	AppContext::GrDeviceContext->Unmap(stagingTex, 0);
+	stagingTex->Release();
+
+	return hBitmap;
+}
+
+void AppContext::GrResizeClient(uint32_t aWidth, uint32_t aHeight)
+{
+	RECT desktop{};
+	::GetWindowRect(::GetDesktopWindow(), &desktop);
+
+	::SetWindowPos(
+		AppContext::GrWindow,
+		nullptr,
+		(desktop.right - aWidth) / 2,
+		(desktop.bottom - aHeight) / 2,
+		aWidth,
+		aHeight,
+		SWP_NOZORDER | SWP_NOACTIVATE
+	);
+
+	AppContext::GrDimensions.Width = aWidth;
+	AppContext::GrDimensions.Height = aHeight;
 }
 
 bool AppContext::GrCreateDevice(HWND aWindowHandle)
@@ -294,8 +317,8 @@ void AppContext::GrDestroyDevice()
 bool AppContext::GrCreateRenderTarget()
 {
 	D3D11_TEXTURE2D_DESC texDesc{};
-	texDesc.Width = 520;
-	texDesc.Height = 640;
+	texDesc.Width = AppContext::GrDimensions.Width;
+	texDesc.Height = AppContext::GrDimensions.Height;
 	texDesc.MipLevels = 1;
 	texDesc.ArraySize = 1;
 	texDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
